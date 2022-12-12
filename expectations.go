@@ -376,9 +376,6 @@ func (e *ExpectedQuery) WillReturnRows(rows ...*Rows) *ExpectedQuery {
 }
 
 func (e *queryBasedExpectation) argsMatches(args []interface{}) error {
-	if nil == e.args {
-		return nil
-	}
 	if len(args) != len(e.args) {
 		return fmt.Errorf("expected %d, but got %d arguments", len(e.args), len(args))
 	}
@@ -441,7 +438,7 @@ func (e *ExpectedCopyFrom) WillDelayFor(duration time.Duration) *ExpectedCopyFro
 func (e *ExpectedCopyFrom) String() string {
 	msg := "ExpectedCopyFrom => expecting CopyFrom which:"
 	msg += "\n  - matches table name: '" + e.expectedTableName + "'"
-	msg += fmt.Sprintf("\n  - matches column names: '%+v'", e.expectedTableName)
+	msg += fmt.Sprintf("\n  - matches column names: '%+v'", e.expectedColumns)
 
 	if e.err != nil {
 		msg += fmt.Sprintf("\n  - should return error: %s", e.err)

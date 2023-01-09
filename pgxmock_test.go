@@ -116,7 +116,7 @@ func TestMockCopyFrom(t *testing.T) {
 	defer mock.Close(context.Background())
 
 	mock.ExpectCopyFrom(`"fooschema"."baztable"`, []string{"col1"}).
-		WillReturnResult(2)
+		WillReturnResult(2).WillDelayFor(1 * time.Second)
 
 	_, err = mock.CopyFrom(context.Background(), pgx.Identifier{"error", "error"}, []string{"error"}, nil)
 	if err == nil {
@@ -133,6 +133,14 @@ func TestMockCopyFrom(t *testing.T) {
 
 	if rows != 2 {
 		t.Errorf("expected RowsAffected to be 2, but got %d instead", rows)
+	}
+
+	mock.ExpectCopyFrom(`"fooschema"."baztable"`, []string{"col1"}).
+		WillReturnError(errors.New("error is here"))
+
+	_, err = mock.CopyFrom(context.Background(), pgx.Identifier{"fooschema", "baztable"}, []string{"col1"}, nil)
+	if err == nil {
+		t.Error("error is expected while executing CopyFrom")
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -229,24 +237,6 @@ func TestTransactionExpectations(t *testing.T) {
 		t.Errorf("an error '%s' was not expected when committing a transaction", err)
 	}
 
-	// // beginTxFunc and commit
-	// mock.ExpectBeginTx(pgx.TxOptions{})
-	// mock.ExpectCommit()
-
-	// err = mock.BeginFunc(context.Background(), func(tx pgx.Tx) error { return nil })
-	// if err != nil {
-	// 	t.Errorf("an error '%s' was not expected when beginning a transaction", err)
-	// }
-
-	// // beginTxFunc and rollback
-	// mock.ExpectBeginTx(pgx.TxOptions{})
-	// mock.ExpectRollback()
-
-	// err = mock.BeginFunc(context.Background(), func(tx pgx.Tx) error { return errors.New("smth wrong") })
-	// if err == nil {
-	// 	t.Error("an error was expected whithin a transaction, but got none")
-	// }
-
 	// begin and rollback
 	mock.ExpectBegin()
 	mock.ExpectRollback()
@@ -282,7 +272,9 @@ func TestPrepareExpectations(t *testing.T) {
 	}
 	defer mock.Close(context.Background())
 
-	mock.ExpectPrepare("foo", "SELECT (.+) FROM articles WHERE id = ?")
+	mock.ExpectPrepare("foo", "SELECT (.+) FROM articles WHERE id = ?").
+		WillDelayFor(1 * time.Second).
+		WillReturnCloseError(errors.New("invaders must die"))
 
 	stmt, err := mock.Prepare(context.Background(), "foo", "SELECT (.+) FROM articles WHERE id = $1")
 	if err != nil {
@@ -959,7 +951,7 @@ func TestPrepareExec(t *testing.T) {
 	mock.ExpectBegin()
 	ep := mock.ExpectPrepare("foo", "INSERT INTO ORDERS\\(ID, STATUS\\) VALUES \\(\\?, \\?\\)")
 	for i := 0; i < 3; i++ {
-		ep.ExpectExec().WillReturnResult(NewResult("UPDATE", 1))
+		ep.ExpectExec().WithArgs(AnyArg(), AnyArg()).WillReturnResult(NewResult("UPDATE", 1))
 	}
 	mock.ExpectCommit()
 	tx, _ := mock.Begin(context.Background())
@@ -1071,7 +1063,7 @@ func TestPreparedStatementCloseExpectation(t *testing.T) {
 	defer mock.Close(context.Background())
 
 	ep := mock.ExpectPrepare("foo", "INSERT INTO ORDERS").WillBeClosed()
-	ep.ExpectExec().WillReturnResult(NewResult("UPDATE", 1))
+	ep.ExpectExec().WithArgs(AnyArg(), AnyArg()).WillReturnResult(NewResult("UPDATE", 1))
 
 	_, err = mock.Prepare(context.Background(), "foo", "INSERT INTO ORDERS(ID, STATUS) VALUES (?, ?)")
 	if err != nil {
@@ -1101,7 +1093,7 @@ func TestExecExpectationErrorDelay(t *testing.T) {
 
 	// test that return of error is delayed
 	delay := time.Millisecond * 100
-	mock.ExpectExec("^INSERT INTO articles").
+	mock.ExpectExec("^INSERT INTO articles").WithArgs(AnyArg()).
 		WillReturnError(errors.New("slow fail")).
 		WillDelayFor(delay)
 
@@ -1249,4 +1241,16 @@ func TestPgConn(t *testing.T) {
 	defer mock.Close(context.Background())
 
 	_ = mock.PgConn()
+}
+
+func TestNewRowsWithColumnDefinition(t *testing.T) {
+	mock, err := NewConn()
+	if err != nil {
+		t.Errorf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer mock.Close(context.Background())
+	r := mock.NewRowsWithColumnDefinition(*mock.NewColumn("foo"))
+	if len(r.defs) != 1 {
+		t.Error("NewRows failed")
+	}
 }

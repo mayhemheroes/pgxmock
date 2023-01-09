@@ -1,4 +1,4 @@
-package fuzz
+package fuzzPgxmock
 
 import "strconv"
 import "github.com/pashagolub/pgxmock/v2"

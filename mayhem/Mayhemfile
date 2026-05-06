@@ -7,6 +7,5 @@ target: pgxmock
 # List of commands used to test the target
 cmds:
 
-    # Command used to start the target, "@@" is the input file
-    # (when "@@" is omitted Mayhem defaults to stdin inputs)
-    - cmd: ./fuzzPgxmock.libfuzzer
+    # Command used to start the target using native Go fuzzing
+    - cmd: /fuzzPgxmock -test.run=^$ -test.fuzz=FuzzPgxmock -test.fuzzcachedir=/tmp/fuzz

@@ -1,14 +1,9 @@
-FROM golang:1.23 as builder
+FROM golang:1.24 AS builder
 
 COPY . /pgxmock
-WORKDIR /pgxmock/mayhem
+WORKDIR /pgxmock
 
-RUN go install github.com/dvyukov/go-fuzz/go-fuzz@latest github.com/dvyukov/go-fuzz/go-fuzz-build@latest
-RUN go get github.com/dvyukov/go-fuzz/go-fuzz-dep
-RUN apt update && apt install -y clang
-
-RUN go-fuzz-build -libfuzzer -o fuzzPgxmock.a && \
-    clang -fsanitize=fuzzer fuzzPgxmock.a -o fuzzPgxmock.libfuzzer
+RUN go test -c -fuzz=FuzzPgxmock -o /fuzzPgxmock ./mayhem/
 
 FROM debian:bookworm-slim
-COPY --from=builder /pgxmock/mayhem/fuzzPgxmock.libfuzzer /
+COPY --from=builder /fuzzPgxmock /fuzzPgxmock

@@ -1,7 +1,7 @@
 package fuzzPgxmock
 
 import "strconv"
-import "github.com/pashagolub/pgxmock/v2"
+import pgxmock "github.com/pashagolub/pgxmock/v5"
 
 
 func mayhemit(bytes []byte) int {
